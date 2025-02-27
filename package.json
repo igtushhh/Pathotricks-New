@@ -1,0 +1,23 @@
+{
+  "name": "pathology-lab-management",
+  "version": "1.0.0",
+  "description": "Pathology Lab Management System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node start.js",
+    "dev": "nodemon start.js",
+    "server": "node server.js",
+    "test": "node test-db.js",
+    "check-env": "node check-env.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "live-server": "^1.2.2",
+    "mongoose": "^8.1.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}

@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Track - Pathotricks</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="pdfUtils.js"></script>
+    <script>
+        // Initialize jsPDF
+        window.jspdf = window.jspdf || {};
+    </script>
+</head>
+<body>
+    <!-- Splash Screen -->
+    <div class="splash-screen">
+        <div class="splash-content">
+            <img src="logo.png" alt="Pathotricks Logo" class="splash-logo">
+            <h1 class="splash-text">Pathotricks</h1>
+            <p class="splash-subtext">Clinical Medical Laboratory</p>
+            <div class="loading-bar">
+                <div class="loading-progress"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header>
+            <nav>
+                <div class="logo">
+                    <img src="logo.png" alt="Pathotricks Logo" class="logo-img">
+                    <div class="logo-text-container">
+                        <span class="logo-text">Pathotricks</span>
+                        <span class="logo-subtext">Clinical Medical Laboratory</span>
+                    </div>
+                </div>
+                <div class="nav-links">
+                    <a href="index.html"><i class="fas fa-home"></i> Home</a>
+                    <a href="datatrack.html" class="active"><i class="fas fa-chart-line"></i> DataTrack</a>
+                    <a href="viewdata.html"><i class="fas fa-database"></i> View Data</a>
+                </div>
+            </nav>
+        </header>
+
+        <main>
+            <div class="container">
+                <div class="page-header">
+                    <h1>Data Track</h1>
+                    <p>Track and manage patient test data</p>
+                </div>
+
+                <div class="filter-section">
+                    <div class="filter-group">
+                        <label for="dateRange">Date Range:</label>
+                        <select id="dateRange" class="filter-input">
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="testType">Test Type:</label>
+                        <select id="testType" class="filter-input">
+                            <option value="all">All Tests</option>
+                            <option value="blood">Blood Test</option>
+                            <option value="urine">Urine Test</option>
+                            <option value="xray">X-Ray</option>
+                        </select>
+                    </div>
+                    <button class="filter-btn">Apply Filters</button>
+                </div>
+
+                <div class="stats-section">
+                    <div class="stat-card">
+                        <i class="fas fa-users"></i>
+                        <h3>Total Patients</h3>
+                        <p class="stat-number">0</p>
+                        <p class="stat-label">This Month</p>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-vial"></i>
+                        <h3>Tests Conducted</h3>
+                        <p class="stat-number">0</p>
+                        <p class="stat-label">This Month</p>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-rupee-sign"></i>
+                        <h3>Revenue</h3>
+                        <p class="stat-number">₹0</p>
+                        <p class="stat-label">This Month</p>
+                    </div>
+                </div>
+
+                <div class="data-section">
+                    <div class="filters">
+                        <form id="filterForm" class="filter-form">
+                            <div class="filter-group">
+                                <label for="dateRange">Date Range</label>
+                                <select id="dateRange" name="dateRange">
+                                    <option value="all">All Time</option>
+                                    <option value="today">Today</option>
+                                    <option value="week">This Week</option>
+                                    <option value="month">This Month</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="statusFilter">Status</label>
+                                <select id="statusFilter" name="status">
+                                    <option value="all">All Status</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="processing">Processing</option>
+                                    <option value="completed">Completed</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="searchQuery">Search</label>
+                                <input type="text" id="searchQuery" name="searchQuery" placeholder="Search patients...">
+                            </div>
+                            <button type="submit" class="filter-btn">
+                                <i class="fas fa-filter"></i> Apply Filters
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Serial No.</th>
+                                    <th>Patient Name</th>
+                                    <th>Tests</th>
+                                    <th>Status</th>
+                                    <th>Amount</th>
+                                    <th>Actions</th>
+                                    <th>Report</th>
+                                </tr>
+                            </thead>
+                            <tbody id="patientTableBody">
+                                <!-- Data will be populated here -->
+                            </tbody>
+                        </table>
+                        <div id="loadingIndicator" class="loading-indicator" style="display: none;">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-section">
+                        <h3>Contact Us</h3>
+                        <p><i class="fas fa-phone"></i> <a href="tel:+918899113105">+91 8899113105</a></p>
+                        <p><i class="fas fa-envelope"></i> <a href="mailto:pathotrickshome@gmail.com">pathotrickshome@gmail.com</a></p>
+                        <p><i class="fas fa-map-marker-alt"></i> Pathotricks Sample Collection Center</p>
+                    </div>
+                    <div class="footer-section">
+                        <h3>Quick Links</h3>
+                        <p><a href="index.html"><i class="fas fa-home"></i> Home</a></p>
+                        <p><a href="datatrack.html"><i class="fas fa-chart-line"></i> Data Track</a></p>
+                        <p><a href="viewdata.html"><i class="fas fa-database"></i> View Data</a></p>
+                    </div>
+                    <div class="footer-section">
+                        <h3>Connect With Us</h3>
+                        <div class="social-links">
+                            <a href="https://wa.me/+918600358397" target="_blank"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+                            <a href="https://t.me/+918600358397" target="_blank"><i class="fab fa-telegram"></i> Telegram</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer-bottom">
+                    <p>&copy; 2024 Pathotricks Clinical Medical Laboratory. All rights reserved.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Test Results Dialog -->
+    <div id="testResultsDialog" class="dialog">
+        <div class="dialog-content">
+            <h2>Enter Test Results</h2>
+            <div id="testResultsForm">
+                <!-- Test results will be populated here -->
+            </div>
+            <div class="dialog-buttons">
+                <button onclick="saveTestResults()" class="save-btn">Save & Generate Report</button>
+                <button onclick="closeDialog()" class="cancel-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Handle splash screen
+        document.addEventListener('DOMContentLoaded', () => {
+            const splashScreen = document.querySelector('.splash-screen');
+            const mainContent = document.querySelector('.main-content');
+            
+            // Show main content after 2 seconds
+            setTimeout(() => {
+                splashScreen.style.opacity = '0';
+                mainContent.style.display = 'block';
+                setTimeout(() => {
+                    splashScreen.style.display = 'none';
+                }, 500);
+            }, 2000);
+        });
+
+        // Global function for status updates
+        window.updatePatientStatus = async (patientId, newStatus) => {
+            try {
+                const response = await fetch(`http://localhost:3002/api/patients/${patientId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                if (!response.ok) throw new Error('Failed to update status');
+                
+                // Refresh data instead of page reload
+                fetchAndDisplayData();
+            } catch (error) {
+                console.error('Error updating status:', error);
+                alert('Failed to update status');
+            }
+        };
+
+        // Fetch and display data
+        async function fetchAndDisplayData() {
+            const tableBody = document.getElementById('patientTableBody');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            
+            try {
+                loadingIndicator.style.display = 'flex';
+                
+                const response = await fetch('http://localhost:3002/api/patients');
+                if (!response.ok) throw new Error(`Server returned ${response.status}`);
+                
+                const patients = await response.json();
+                console.log('Fetched patients:', patients);
+
+                if (!Array.isArray(patients) || patients.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="no-data">
+                                <i class="fas fa-info-circle"></i>
+                                <p>No patients found</p>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                // Update table with correct ID field
+                tableBody.innerHTML = patients.map(patient => `
+                    <tr>
+                        <td>${new Date(patient.createdAt).toLocaleDateString('en-IN')}</td>
+                        <td>${patient.serialNumber}</td>
+                        <td>${patient.patientName}</td>
+                        <td>${patient.selectedTests.map(test => test.name).join(', ')}</td>
+                        <td>
+                            <span class="status-badge ${patient.status}">
+                                ${patient.status.charAt(0).toUpperCase() + patient.status.slice(1)}
+                            </span>
+                        </td>
+                        <td>₹${patient.finalAmount.toLocaleString('en-IN')}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button onclick="updatePatientStatus('${patient._id}', 'pending')" 
+                                    class="status-btn ${patient.status === 'pending' ? 'active' : ''}">
+                                    Pending
+                                </button>
+                                <button onclick="updatePatientStatus('${patient._id}', 'processing')" 
+                                    class="status-btn ${patient.status === 'processing' ? 'active' : ''}">
+                                    Processing
+                                </button>
+                                <button onclick="updatePatientStatus('${patient._id}', 'completed')" 
+                                    class="status-btn ${patient.status === 'completed' ? 'active' : ''}">
+                                    Completed
+                                </button>
+                            </div>
+                        </td>
+                        <td>
+                            <button onclick="generateReport('${patient._id}')" class="report-btn">
+                                <i class="fas fa-file-pdf"></i> Generate Report
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                // Fetch and update statistics
+                await fetchAndDisplayStats();
+
+            } catch (error) {
+                console.error('Error:', error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="error">
+                            Error loading data: ${error.message}
+                        </td>
+                    </tr>
+                `;
+            } finally {
+                loadingIndicator.style.display = 'none';
+            }
+        }
+
+        // Fetch and display statistics
+        async function fetchAndDisplayStats() {
+            try {
+                const response = await fetch('http://localhost:3002/api/statistics');
+                if (!response.ok) throw new Error('Failed to fetch statistics');
+                
+                const stats = await response.json();
+                console.log('Statistics:', stats);
+
+                // Update statistics cards
+                document.querySelector('.stat-card:nth-child(1) .stat-number').textContent = stats.totalPatients;
+                document.querySelector('.stat-card:nth-child(2) .stat-number').textContent = stats.totalTests;
+                document.querySelector('.stat-card:nth-child(3) .stat-number').textContent = 
+                    `₹${stats.totalRevenue.toLocaleString('en-IN')}`;
+
+            } catch (error) {
+                console.error('Error fetching statistics:', error);
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Page loaded, fetching data...');
+            
+            // Setup filter form
+            const filterForm = document.getElementById('filterForm');
+            if (filterForm) {
+                filterForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    fetchAndDisplayData();
+                });
+            }
+
+            // Initial data fetch
+            fetchAndDisplayData();
+        });
+
+        let currentPatientId = null;
+
+        async function generateReport(patientId) {
+            try {
+                // Show loading notification
+                showInfo('Generating report...');
+
+                // Fetch patient data with proper error handling
+                const response = await fetch(`http://localhost:3002/api/patients/${patientId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                // Log response details for debugging
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+
+                // Check if response is HTML instead of JSON
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('text/html')) {
+                    throw new Error('Server returned HTML instead of JSON. Please check server configuration.');
+                }
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                let responseData;
+                try {
+                    responseData = await response.json();
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    throw new Error('Failed to parse server response');
+                }
+
+                if (!responseData.success || !responseData.data) {
+                    throw new Error(responseData.message || 'Invalid server response');
+                }
+
+                // Generate PDF
+                const pdfGenerator = new PDFGenerator();
+                await pdfGenerator.generateReport(responseData.data);
+                
+                showSuccess('Report generated successfully');
+
+            } catch (error) {
+                console.error('Error generating report:', error);
+                showError(`Failed to generate report: ${error.message}`);
+            }
+        }
+
+        // Helper functions
+        function getDefaultRange(testName) {
+            const ranges = {
+                'Hemoglobin': '13-17',
+                'RBC Count': '4.5-5.5',
+                'WBC Count': '4000-11000',
+                'Platelets': '150000-450000',
+                'Blood Sugar': '70-100',
+                'Creatinine': '0.7-1.3',
+                'Urea': '7-20',
+                'SGPT': '7-56',
+                'SGOT': '5-40',
+                'Albumin': '3.5-5.5',
+                'Total Protein': '6.0-8.3',
+                'Cholesterol': '150-200'
+            };
+            return ranges[testName] || '--';
+        }
+
+        function getDefaultUnits(testName) {
+            const units = {
+                'Hemoglobin': 'g/dL',
+                'RBC Count': 'million/µL',
+                'WBC Count': 'cells/µL',
+                'Platelets': '/µL',
+                'Blood Sugar': 'mg/dL',
+                'Creatinine': 'mg/dL',
+                'Urea': 'mg/dL',
+                'SGPT': 'U/L',
+                'SGOT': 'U/L',
+                'Albumin': 'g/dL',
+                'Total Protein': 'g/dL',
+                'Cholesterol': 'mg/dL'
+            };
+            return units[testName] || '--';
+        }
+
+        function showSuccess(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification success';
+            notification.innerHTML = `
+                <i class="fas fa-check-circle"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        function showError(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification error';
+            notification.innerHTML = `
+                <i class="fas fa-exclamation-circle"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        async function saveTestResults() {
+            try {
+                const saveBtn = document.querySelector('.save-btn');
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+                // Get current patient data
+                const response = await fetch(`http://localhost:3002/api/patients/${currentPatientId}`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch patient data');
+                }
+
+                const { data: patient } = await response.json();
+                
+                // Collect results
+                const testResults = patient.selectedTests.map((test, index) => ({
+                    name: test.name,
+                    price: test.price,
+                    result: document.getElementById(`result-${index}`).value,
+                    normalRange: document.getElementById(`range-${index}`).value,
+                    units: document.getElementById(`units-${index}`).value,
+                    status: document.getElementById(`status-${index}`).value
+                }));
+
+                // Save test results
+                const saveResponse = await fetch(`http://localhost:3002/api/patients/${currentPatientId}/test-results`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ testResults })
+                });
+
+                if (!saveResponse.ok) {
+                    throw new Error('Failed to save test results');
+                }
+
+                const updatedData = await saveResponse.json();
+                
+                // Generate PDF
+                await generatePDF(updatedData.data);
+                
+                // Show success message
+                showSuccess('Report generated successfully');
+                
+                // Close dialog and refresh data
+                closeDialog();
+                fetchAndDisplayData();
+            } catch (error) {
+                console.error('Error saving results:', error);
+                showError(`Failed to save results: ${error.message}`);
+            } finally {
+                const saveBtn = document.querySelector('.save-btn');
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = 'Save & Generate Report';
+            }
+        }
+
+        function closeDialog() {
+            document.getElementById('testResultsDialog').style.display = 'none';
+            currentPatientId = null;
+        }
+
+        async function generatePDF(patient) {
+            try {
+                // Initialize jsPDF
+                if (typeof window.jspdf === 'undefined') {
+                    throw new Error('jsPDF library not loaded');
+                }
+
+                // Create new document
+                const doc = new window.jspdf.jsPDF();
+
+                // Add logo (if you have one)
+                // const logoUrl = 'path/to/your/logo.png';
+                // doc.addImage(logoUrl, 'PNG', 10, 10, 30, 30);
+
+                // Header
+                doc.setFillColor(44, 62, 80);
+                doc.rect(0, 0, 210, 40, 'F');
+                
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(24);
+                doc.text('Pathotricks', 105, 20, { align: 'center' });
+                
+                doc.setFontSize(14);
+                doc.text('Clinical Medical Laboratory', 105, 30, { align: 'center' });
+
+                // Patient Information Section
+                doc.setTextColor(44, 62, 80);
+                doc.setFontSize(14);
+                doc.text('Patient Report', 105, 55, { align: 'center' });
+
+                // Patient Details Table
+                const patientInfo = [
+                    ['Patient Name:', patient.patientName],
+                    ['Serial Number:', patient.serialNumber],
+                    ['Age/Gender:', `${patient.age} years / ${patient.gender.toUpperCase()}`],
+                    ['Contact:', patient.contactNumber],
+                    ['Report Date:', new Date().toLocaleDateString('en-IN')],
+                    ['Sample Collection:', new Date(patient.createdAt).toLocaleDateString('en-IN')]
+                ];
+
+                doc.autoTable({
+                    startY: 65,
+                    head: [],
+                    body: patientInfo,
+                    theme: 'plain',
+                    styles: { fontSize: 10 },
+                    columnStyles: {
+                        0: { fontStyle: 'bold', cellWidth: 40 },
+                        1: { cellWidth: 60 }
+                    }
+                });
+
+                // Test Results Section
+                doc.setFontSize(12);
+                doc.text('Test Results', 14, doc.lastAutoTable.finalY + 15);
+
+                // Test Results Table
+                const testHeaders = [['Test Name', 'Result', 'Normal Range', 'Units', 'Status']];
+                const testData = patient.selectedTests.map(test => [
+                    test.name,
+                    test.result || 'Pending',
+                    test.normalRange || '--',
+                    test.units || '--',
+                    (test.status || 'pending').toUpperCase()
+                ]);
+
+                doc.autoTable({
+                    startY: doc.lastAutoTable.finalY + 20,
+                    head: testHeaders,
+                    body: testData,
+                    theme: 'grid',
+                    styles: { fontSize: 10 },
+                    headStyles: { 
+                        fillColor: [44, 62, 80],
+                        textColor: [255, 255, 255]
+                    },
+                    columnStyles: {
+                        4: {
+                            fontStyle: 'bold',
+                            halign: 'center'
+                        }
+                    },
+                    didDrawCell: (data) => {
+                        if (data.section === 'body' && data.column.index === 4) {
+                            const status = data.cell.raw.toLowerCase();
+                            if (status === 'high') {
+                                data.cell.styles.textColor = [192, 57, 43];
+                            } else if (status === 'low') {
+                                data.cell.styles.textColor = [41, 128, 185];
+                            } else if (status === 'normal') {
+                                data.cell.styles.textColor = [39, 174, 96];
+                            }
+                        }
+                    }
+                });
+
+                // Add Footer
+                const footerY = doc.internal.pageSize.height - 30;
+                
+                // Left side - Doctor's signature
+                doc.setFontSize(10);
+                doc.text('Authorized Signatory:', 14, footerY);
+                doc.text(patient.doctorName || 'Dr. Pathotricks', 14, footerY + 10);
+
+                // Right side - Lab details
+                doc.text('Laboratory Details:', 120, footerY);
+                doc.setFontSize(8);
+                doc.text('Pathotricks Clinical Medical Laboratory', 120, footerY + 5);
+                doc.text('Contact: +91 8899113105', 120, footerY + 10);
+                doc.text('Email: pathotrickshome@gmail.com', 120, footerY + 15);
+
+                // Center - Disclaimer
+                doc.setFontSize(8);
+                doc.setTextColor(128, 128, 128);
+                doc.text('This is a computer-generated report and does not require physical signature.', 105, footerY + 20, { align: 'center' });
+
+                // Save the PDF
+                const filename = `${patient.serialNumber}_report.pdf`;
+                doc.save(filename);
+                console.log('PDF generated successfully:', filename);
+
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                showError(`Failed to generate PDF: ${error.message}`);
+            }
+        }
+
+        // Add info notification function
+        function showInfo(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification info';
+            notification.innerHTML = `
+                <i class="fas fa-info-circle"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+    </script>
+
+    <style>
+    /* Add splash screen styles */
+    .splash-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        transition: opacity 0.5s;
+    }
+
+    .splash-content {
+        text-align: center;
+    }
+
+    .splash-logo {
+        width: 150px;
+        margin-bottom: 20px;
+    }
+
+    .loading-bar {
+        width: 200px;
+        height: 4px;
+        background: #eee;
+        border-radius: 2px;
+        margin: 20px auto;
+        overflow: hidden;
+    }
+
+    .loading-progress {
+        width: 100%;
+        height: 100%;
+        background: var(--primary);
+        animation: loading 2s linear;
+    }
+
+    @keyframes loading {
+        from { transform: translateX(-100%); }
+        to { transform: translateX(100%); }
+    }
+
+    .main-content {
+        display: none;
+    }
+
+    /* Add these styles */
+    .no-data {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+    }
+
+    .no-data i {
+        font-size: 48px;
+        margin-bottom: 10px;
+        color: #ddd;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+
+    .data-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .data-table tr:hover {
+        background: #f8f9fa;
+    }
+
+    .status {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: 500;
+    }
+
+    .status.completed {
+        background: #e3fcef;
+        color: #00875a;
+    }
+
+    .status.processing {
+        background: #fff7e6;
+        color: #b76e00;
+    }
+
+    .status.pending {
+        background: #fff1f0;
+        color: #cf1322;
+    }
+
+    .action-btn {
+        padding: 6px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        color: #666;
+        transition: color 0.2s;
+    }
+
+    .action-btn:hover {
+        color: var(--primary);
+    }
+
+    .refresh-btn,
+    .export-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+    }
+
+    .refresh-btn {
+        background: var(--primary);
+        color: white;
+    }
+
+    .export-btn {
+        background: #fff;
+        color: var(--primary);
+        border: 1px solid var(--primary);
+    }
+
+    .refresh-btn:hover,
+    .export-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .report-btn {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        background: #4CAF50;
+        color: white;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.9em;
+        transition: all 0.2s;
+    }
+
+    .report-btn:hover {
+        background: #45a049;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .report-btn i {
+        font-size: 1em;
+    }
+
+    /* Dialog Styles */
+    .dialog {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+
+    .dialog-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        min-width: 400px;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+
+    .test-result-row {
+        margin-bottom: 15px;
+        padding: 10px;
+        border: 1px solid #eee;
+        border-radius: 4px;
+    }
+
+    .test-result-row label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+    }
+
+    .test-result-row input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin-bottom: 5px;
+    }
+
+    .dialog-buttons {
+        margin-top: 20px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .save-btn, .cancel-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .save-btn {
+        background: var(--primary);
+        color: white;
+    }
+
+    .cancel-btn {
+        background: #f5f5f5;
+        color: #333;
+    }
+
+    .save-btn:hover {
+        background: var(--primary-dark);
+    }
+
+    .cancel-btn:hover {
+        background: #e5e5e5;
+    }
+
+    .test-inputs {
+        display: grid;
+        grid-template-columns: 2fr 2fr 1fr 1fr;
+        gap: 10px;
+        margin-top: 5px;
+    }
+
+    .result-input, .range-input, .units-input, .status-select {
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    .status-select {
+        background-color: white;
+    }
+
+    .test-result-row {
+        margin-bottom: 20px;
+        padding: 15px;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        background: #f8f9fa;
+    }
+
+    .test-result-row label {
+        color: #333;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .dialog-content {
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .dialog-content h2 {
+        margin-bottom: 20px;
+        color: var(--primary);
+        border-bottom: 2px solid var(--primary);
+        padding-bottom: 10px;
+    }
+
+    /* Add these styles to your existing styles */
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: white;
+        animation: slideIn 0.3s ease;
+        z-index: 1000;
+    }
+
+    .notification.success {
+        background-color: #2ecc71;
+    }
+
+    .notification.error {
+        background-color: #e74c3c;
+    }
+
+    .notification i {
+        font-size: 18px;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    /* Add to your existing notification styles */
+    .notification.info {
+        background-color: #3498db;
+    }
+    </style>
+</body>
+</html>
