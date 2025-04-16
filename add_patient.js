@@ -117,71 +117,126 @@ function filterTests() {
     });
 }
 
-// Update the generateSerialNumber function
-function generateSerialNumber() {
-    const now = new Date();
-    const year = now.getFullYear().toString();
-    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    const day = now.getDate().toString().padStart(2, '0');
-    const dateStr = `${year}${month}${day}`;
-    
-    // Clear localStorage to ensure fresh start
-    if (!localStorage.getItem('lastSerialDate')) {
-        localStorage.clear();
-    }
-    
-    const lastDate = localStorage.getItem('lastSerialDate');
-    let count = 1;
-
-    if (lastDate === dateStr) {
-        count = parseInt(localStorage.getItem('serialCount') || '0') + 1;
-        // Check if count exceeds 99999
-        if (count > 99999) {
-            throw new Error('Maximum patient limit reached for today');
+// Function to generate serial number from server
+async function generateSerialNumber() {
+    try {
+        const response = await fetch('http://localhost:3002/api/next-serial-number');
+        if (!response.ok) {
+            throw new Error('Failed to generate serial number');
         }
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Failed to generate serial number');
+        }
+        console.log('Generated serial number:', data.serialNumber);
+        return data.serialNumber;
+    } catch (error) {
+        console.error('Error generating serial number:', error);
+        throw error;
     }
+}
 
-    localStorage.setItem('lastSerialDate', dateStr);
-    localStorage.setItem('serialCount', count.toString());
+// Function to validate serial number
+function validateSerialNumber(serialNumber) {
+    if (!serialNumber) return false;
+    
+    // Clean the serial number
+    const cleanSerialNumber = serialNumber.trim().replace(/\s+/g, '');
+    
+    // Check basic format PT-YYYYMMDDXXXXX or PTYYYYMMDDXXXXX
+    if (!/^PT[-]?\d{8}\d{5}$/.test(cleanSerialNumber)) {
+        throw new Error(`Invalid serial number format: ${serialNumber}. Expected format: PT-YYYYMMDDXXXXX`);
+    }
+    
+    // Extract date and count
+    const dateStr = cleanSerialNumber.slice(cleanSerialNumber.indexOf('PT') + 2).replace('-', '').slice(0, 8);
+    const count = parseInt(cleanSerialNumber.slice(-5));
+    
+    // Validate count
+    if (count > 99999) {
+        throw new Error('Patient number exceeds daily limit');
+    }
+    
+    // Validate date
+    const year = parseInt(dateStr.slice(0, 4));
+    const month = parseInt(dateStr.slice(4, 6));
+    const day = parseInt(dateStr.slice(6, 8));
+    const date = new Date(year, month - 1, day);
+    
+    const isValidDate = !isNaN(date.getTime()) &&
+        date.getFullYear() === year &&
+        (date.getMonth() + 1) === month &&
+        date.getDate() === day;
 
-    // Format: PT-YYYYMMDDXXXXX (5 digits for counter)
-    const serialNumber = `PT-${dateStr}${count.toString().padStart(5, '0')}`;
-    console.log('Generated serial number:', serialNumber);
-    return serialNumber;
+    if (!isValidDate) {
+        throw new Error('Invalid date in serial number');
+    }
+    
+    // Return standardized format
+    return `PT-${dateStr}${count.toString().padStart(5, '0')}`;
+}
+
+// Function to initialize form
+async function initializeForm() {
+    try {
+        // Generate initial serial number
+        const serialNumber = await generateSerialNumber();
+        if (serialNumber) {
+            const serialNumberInput = document.getElementById('serialNumber');
+            if (serialNumberInput) {
+                serialNumberInput.value = serialNumber;
+                // Make it read-only to prevent manual changes
+                serialNumberInput.readOnly = true;
+            }
+        }
+    } catch (error) {
+        console.error('Error initializing form:', error);
+        showNotification('Error generating serial number. Please try again.', 'error');
+    }
 }
 
 // Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    // Clear any existing serial numbers
-    localStorage.clear();
-    
-    populateTests();
-    
-    // Add search functionality
-    const searchInput = document.getElementById('searchTests');
-    if (searchInput) {
-        searchInput.addEventListener('input', filterTests);
-    }
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // Populate tests first
+        populateTests();
+        
+        // Add search functionality
+        const searchInput = document.getElementById('searchTests');
+        if (searchInput) {
+            searchInput.addEventListener('input', filterTests);
+        }
 
-    // Set initial serial number
-    const serialNumber = generateSerialNumber();
-    const serialNumberInput = document.getElementById('serialNumber');
-    if (serialNumberInput) {
-        serialNumberInput.value = serialNumber;
-        serialNumberInput.readOnly = true;
-        console.log('Set initial serial number:', serialNumber); // Debug log
-    }
+        // Initialize form with serial number
+        await initializeForm();
+        
+        // Add form submit handler
+        const form = document.getElementById('patientForm');
+        if (form) {
+            form.addEventListener('submit', handleSubmit);
+        }
 
-    // Add form submit handler
-    const form = document.getElementById('patientForm');
-    if (form) {
-        form.addEventListener('submit', handleSubmit);
+        // Add change event listener to test checkboxes
+        document.querySelectorAll('.test-item input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', updateSelectedTests);
+        });
+        
+        // Add event listener to validate serial number on input
+        const serialNumberInput = document.getElementById('serialNumber');
+        if (serialNumberInput) {
+            serialNumberInput.addEventListener('input', (e) => {
+                try {
+                    validateSerialNumber(e.target.value);
+                    e.target.setCustomValidity('');
+                } catch (error) {
+                    e.target.setCustomValidity(error.message);
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error initializing page:', error);
+        showNotification('Error initializing page. Please refresh.', 'error');
     }
-
-    // Add change event listener to test checkboxes
-    document.querySelectorAll('.test-item input[type="checkbox"]').forEach(checkbox => {
-        checkbox.addEventListener('change', updateSelectedTests);
-    });
 });
 
 // Helper function to generate serial number
@@ -242,13 +297,14 @@ async function handleSubmit(event) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
-        // Get the serial number
+        // Get and validate serial number
         const serialNumber = document.getElementById('serialNumber').value;
         console.log('Serial number:', serialNumber); // Debug log
 
-        // Validate serial number format
-        if (!/^\d{4}-\d{2}-\d{2}-\d{4}$/.test(serialNumber)) {
-            throw new Error(`Invalid serial number format: ${serialNumber}. Expected format: YYYY-MM-DD-XXXX`);
+        try {
+            validateSerialNumber(serialNumber);
+        } catch (error) {
+            throw new Error(`Invalid serial number: ${error.message}`);
         }
 
         // Validate selected tests
@@ -290,7 +346,7 @@ async function handleSubmit(event) {
         // Check response
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to save patient data');
+            throw new Error(errorData.message || 'Failed to save patient data');
         }
 
         const savedData = await response.json();
@@ -311,7 +367,7 @@ async function handleSubmit(event) {
         updateSummary();
         
         // Generate new serial number
-        document.getElementById('serialNumber').value = generateSerialNumber();
+        await initializeForm();
         
     } catch (error) {
         console.error('Error saving patient:', error);
@@ -362,38 +418,6 @@ if (process.env.NODE_ENV === 'development') {
     testSerialNumberGeneration();
 }
 
-// Update the validation function
-function validateSerialNumber(serialNumber) {
-    // Update regex for new format: PT-YYYYMMDDXXXXX
-    const regex = /^PT-\d{8}\d{5}$/;
-    if (!regex.test(serialNumber)) {
-        return false;
-    }
-
-    // Extract date parts
-    const dateStr = serialNumber.slice(3, 11); // YYYYMMDD
-    const year = parseInt(dateStr.slice(0, 4));
-    const month = parseInt(dateStr.slice(4, 6));
-    const day = parseInt(dateStr.slice(6, 8));
-    
-    // Validate date
-    const date = new Date(year, month - 1, day);
-    return date.getFullYear() === year &&
-           (date.getMonth() + 1) === month &&
-           date.getDate() === day;
-}
-
-// Add event listener to validate serial number on input
-document.addEventListener('DOMContentLoaded', () => {
-    const serialNumberInput = document.getElementById('serialNumber');
-    if (serialNumberInput) {
-        serialNumberInput.addEventListener('input', (e) => {
-            const isValid = validateSerialNumber(e.target.value);
-            e.target.setCustomValidity(isValid ? '' : 'Invalid serial number format');
-        });
-    }
-});
-
 function updateSelectedTests() {
     const selectedTests = getSelectedTests();
     const selectedTestsList = document.getElementById('selectedTestsList');
@@ -416,4 +440,4 @@ function removeTest(testName) {
         checkbox.checked = false;
         updateSelectedTests();
     }
-} 
+}

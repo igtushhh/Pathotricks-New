@@ -26,11 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize page-specific functionality
     initializePage();
 
+    // Initialize form
+    initializeForm();
+
     // Handle new patient button
     const newPatientBtn = document.getElementById('newPatientBtn');
     if (newPatientBtn) {
         newPatientBtn.addEventListener('click', () => {
-            window.location.href = 'index.html#patient-form';
+            window.location.href = 'add_patient.html';
         });
     }
 
@@ -115,14 +118,76 @@ function handleViewDataSearch() {
     // Implement your search logic here
 }
 
+// Function to validate serial number format
+function validateSerialNumber(serialNumber) {
+    if (!serialNumber) return false;
+    
+    // Clean the serial number
+    const cleanSerialNumber = serialNumber.trim().replace(/\s+/g, '');
+    
+    // Check basic format PT-YYYYMMDDXXXXX or PTYYYYMMDDXXXXX
+    if (!/^PT[-]?\d{8}\d{5}$/.test(cleanSerialNumber)) {
+        return false;
+    }
+    
+    // Extract date and count
+    const dateStr = cleanSerialNumber.slice(cleanSerialNumber.indexOf('PT') + 2).replace('-', '').slice(0, 8);
+    const count = parseInt(cleanSerialNumber.slice(-5));
+    
+    // Validate count
+    if (count > 99999) {
+        return false;
+    }
+    
+    // Validate date
+    const year = parseInt(dateStr.slice(0, 4));
+    const month = parseInt(dateStr.slice(4, 6));
+    const day = parseInt(dateStr.slice(6, 8));
+    const date = new Date(year, month - 1, day);
+    
+    return !isNaN(date.getTime()) &&
+        date.getFullYear() === year &&
+        (date.getMonth() + 1) === month &&
+        date.getDate() === day;
+}
+
 // Function to generate serial number
-function generateSerialNumber() {
-    const date = new Date();
-    const year = date.getFullYear().toString().slice(-2);
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `PT${year}${month}${day}${random}`;
+async function generateSerialNumber() {
+    try {
+        const response = await fetch('http://localhost:3002/api/next-serial-number');
+        const data = await response.json();
+        
+        if (data.success) {
+            const serialNumberInput = document.getElementById('serialNumber');
+            if (serialNumberInput) {
+                serialNumberInput.value = data.serialNumber;
+                return data.serialNumber;
+            }
+            return data.serialNumber;
+        } else {
+            showNotification(data.message || 'Error generating serial number', 'error');
+            return null;
+        }
+    } catch (error) {
+        console.error('Error fetching serial number:', error);
+        showNotification('Error generating serial number. Please try again.', 'error');
+        return null;
+    }
+}
+
+// Function to initialize form
+async function initializeForm() {
+    if (document.getElementById('patientForm')) {
+        await generateSerialNumber();
+        
+        // Add event listener for form reset
+        document.getElementById('patientForm').addEventListener('reset', async (e) => {
+            // Wait a bit for the form to reset
+            setTimeout(async () => {
+                await generateSerialNumber();
+            }, 100);
+        });
+    }
 }
 
 // Function to format currency
@@ -159,8 +224,21 @@ function showNotification(message, type = 'success') {
 
 // Function to validate phone number
 function validatePhoneNumber(phone) {
-    const phoneRegex = /^[6-9]\d{9}$/;
-    return phoneRegex.test(phone);
+    // Remove all spaces, hyphens and other non-digit characters except +
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    
+    // Check for Indian mobile number formats:
+    // 1. 10 digits starting with 6-9: ^[6-9]\d{9}$
+    // 2. Optional +91 followed by 10 digits: ^(?:\+91)?[6-9]\d{9}$
+    // 3. Optional 0 followed by 10 digits: ^0?[6-9]\d{9}$
+    const mobileRegex = /^(?:(?:\+91|0)?[6-9]\d{9})$/;
+    
+    // Check for landline number formats:
+    // 1. Area code (2-4 digits) followed by 6-8 digits
+    // 2. Optional 0 before area code
+    const landlineRegex = /^(?:0)?[1-9][0-9]{1,4}[0-9]{6,8}$/;
+    
+    return mobileRegex.test(cleanPhone) || landlineRegex.test(cleanPhone);
 }
 
 // Function to validate email
@@ -524,6 +602,123 @@ async function retryConnection() {
     }
 }
 
+// Function to handle form submission
+async function handleSubmit(event) {
+    event.preventDefault();
+    
+    try {
+        // Check server health first
+        const isServerHealthy = await checkServerHealth();
+        if (!isServerHealthy) {
+            throw new Error('Server is not running. Please start the server and try again.');
+        }
+
+        const form = event.target;
+        const selectedTests = Array.from(document.querySelectorAll('input[name="test"]:checked'));
+        
+        if (!selectedTests.length) {
+            alert('Please select at least one test');
+            return;
+        }
+        
+        // Validate serial number
+        const serialNumber = document.getElementById('serialNumber').value;
+        if (!validateSerialNumber(serialNumber)) {
+            showNotification('Invalid serial number format. Expected format: PT-YYYYMMDDXXXXX', 'error');
+            return;
+        }
+        
+        if (form.checkValidity()) {
+            // Show loading state
+            const submitBtn = form.querySelector('.submit-btn');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            submitBtn.disabled = true;
+
+            // Collect form data
+            const patientData = {
+                date: new Date().toISOString().split('T')[0],
+                serialNumber: serialNumber,
+                patientName: document.getElementById('name').value,
+                age: parseInt(document.getElementById('age').value),
+                gender: document.getElementById('gender').value,
+                contactNumber: document.getElementById('contact').value,
+                email: document.getElementById('email').value || '',
+                address: document.getElementById('address').value || '',
+                selectedTests: selectedTests.map(test => test.parentElement.textContent.trim()),
+                totalAmount: parseFloat(document.getElementById('summaryTotalAmount').textContent.replace('₹', '')),
+                discountAmount: parseFloat(document.getElementById('summaryDiscount').textContent.replace('₹', '')),
+                finalAmount: parseFloat(document.getElementById('summaryFinalAmount').textContent.replace('₹', ''))
+            };
+
+            // Send data to server with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+            try {
+                const response = await fetch('http://localhost:3002/api/patients', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(patientData),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to save patient data');
+                }
+
+                // Show success message
+                showNotification('Patient data saved successfully!', 'success');
+                
+                // Generate PDF
+                await generatePDF(patientData);
+                
+                // Reset form
+                form.reset();
+                await generateSerialNumber(); // Get new serial number
+                updateSummary();
+
+                // Redirect to home page after a short delay
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1000);
+
+            } catch (fetchError) {
+                if (fetchError.name === 'AbortError') {
+                    throw new Error('Request timed out. Please try again.');
+                }
+                throw fetchError;
+            }
+        } else {
+            // Show validation messages
+            const invalidInputs = form.querySelectorAll(':invalid');
+            invalidInputs.forEach(input => validateInput(input));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification(error.message, 'error');
+        
+        // Re-enable submit button if there was an error
+        const submitBtn = form.querySelector('.submit-btn');
+        if (submitBtn) {
+            submitBtn.innerHTML = 'Save';
+            submitBtn.disabled = false;
+        }
+    }
+}
+
+// Function to validate input
+function validateInput(input) {
+    const validationMessage = input.nextElementSibling;
+    if (validationMessage && validationMessage.classList.contains('validation-message')) {
+        validationMessage.style.display = input.validity.valid ? 'none' : 'block';
+    }
+}
+
 // Add these styles to your CSS
 const styles = `
 .server-offline-message {
@@ -575,114 +770,3 @@ document.head.appendChild(styleSheet);
 
 // Check server health when page loads
 document.addEventListener('DOMContentLoaded', checkServerHealth);
-
-// Function to handle form submission
-async function handleSubmit(event) {
-    event.preventDefault();
-    
-    try {
-        // Check server health first
-        const isServerHealthy = await checkServerHealth();
-        if (!isServerHealthy) {
-            throw new Error('Server is not running. Please start the server and try again.');
-        }
-
-        const form = event.target;
-        const selectedTests = Array.from(document.querySelectorAll('input[name="test"]:checked'));
-        
-        if (!selectedTests.length) {
-            alert('Please select at least one test');
-            return;
-        }
-        
-        if (form.checkValidity()) {
-            // Show loading state
-            const submitBtn = form.querySelector('.submit-btn');
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-            submitBtn.disabled = true;
-
-            // Collect form data
-            const patientData = {
-                date: new Date().toISOString().split('T')[0],
-                serialNumber: document.getElementById('serialNumber').value,
-                patientName: document.getElementById('name').value,
-                age: parseInt(document.getElementById('age').value),
-                gender: document.getElementById('gender').value,
-                contactNumber: document.getElementById('contact').value,
-                email: document.getElementById('email').value || '',
-                address: document.getElementById('address').value || '',
-                selectedTests: selectedTests.map(test => test.parentElement.textContent.trim()),
-                totalAmount: parseFloat(document.getElementById('summaryTotalAmount').textContent.replace('₹', '')),
-                discountAmount: parseFloat(document.getElementById('summaryDiscount').textContent.replace('₹', '')),
-                finalAmount: parseFloat(document.getElementById('summaryFinalAmount').textContent.replace('₹', ''))
-            };
-
-            // Send data to server with timeout
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-            try {
-                const response = await fetch('http://localhost:3002/api/patients', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(patientData),
-                    signal: controller.signal
-                });
-
-                clearTimeout(timeoutId);
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Failed to save patient data');
-                }
-
-                // Show success message
-                alert('Patient data saved successfully!');
-                
-                // Generate PDF
-                await generatePDF(patientData);
-                
-                // Reset form
-                form.reset();
-                document.getElementById('serialNumber').value = generateSerialNumber();
-                updateSummary();
-
-                // Redirect to home page after a short delay
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 1000);
-
-            } catch (fetchError) {
-                if (fetchError.name === 'AbortError') {
-                    throw new Error('Request timed out. Please try again.');
-                }
-                throw fetchError;
-            }
-
-        } else {
-            // Show validation messages
-            const invalidInputs = form.querySelectorAll(':invalid');
-            invalidInputs.forEach(input => validateInput(input));
-        }
-    } catch (error) {
-        console.error('Error submitting form:', error);
-        alert('Error: ' + error.message);
-    } finally {
-        // Reset button state if it exists
-        const submitBtn = form.querySelector('.submit-btn');
-        if (submitBtn) {
-            submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Patient Data';
-            submitBtn.disabled = false;
-        }
-    }
-}
-
-// Function to validate input
-function validateInput(input) {
-    const validationMessage = input.nextElementSibling;
-    if (validationMessage && validationMessage.classList.contains('validation-message')) {
-        validationMessage.style.display = input.validity.valid ? 'none' : 'block';
-    }
-}

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>View Data</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <header>
+      <h1>View Data</h1>
+  </header>
+  <div id="dataTable"></div>
+  <script>
+    function generatePDF(data) {
+      const doc = new jsPDF();
+      const width = doc.internal.pageSize.width;
+      const height = doc.internal.pageSize.height;
+      doc.setFillColor(245, 247, 250);
+      doc.rect(0, 0, width, height, 'F');
+      doc.setFillColor(89, 169, 195);
+      doc.rect(0, 0, width, 45, 'F');
+      doc.setFillColor(68, 136, 153);
+      doc.roundedRect(0, 40, width, 15, 5, 5, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(26);
+      doc.text('PathoTricks Home Pathology', width / 2, 25, { align: 'center' });
+      doc.setFont('times', 'italic');
+      doc.setFontSize(22);
+      doc.setTextColor(68, 136, 153);
+      doc.text('Patient Test Report', width / 2, 65, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.setTextColor(60, 60, 60);
+      doc.text(`Patient Name: ${data.name}`, 25, 100);
+      doc.text(`Email: ${data.email}`, 25, 110);
+      doc.save(`user_data_${data.name}.pdf`);
+    }
+
+    window.onload = () => {
+      const existingData = JSON.parse(localStorage.getItem('userData'));
+      const dataTable = document.getElementById('dataTable');
+      if (Array.isArray(existingData) && existingData.length > 0) {
+        let tableHTML = "<table><tr><th>#</th><th>Name</th><th>Email</th><th>Action</th></tr>";
+        existingData.forEach((row, index) => {
+          tableHTML += `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${row.name}</td>
+              <td>${row.email}</td>
+              <td><span class="download-link" onclick="generatePDF(${JSON.stringify(row)})">Download PDF</span></td>
+            </tr>`;
+        });
+        tableHTML += "</table>";
+        dataTable.innerHTML = tableHTML;
+      } else {
+        dataTable.innerHTML = "<p class='no-data'>No data found.</p>";
+      }
+    };
+  </script>
+</body>
+</html>

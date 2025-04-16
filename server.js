@@ -134,18 +134,27 @@ app.get('/api/patients', async (req, res) => {
 // Update the validation middleware
 const validateSerialNumber = (req, res, next) => {
     const { serialNumber } = req.body;
-    
-    // Check format PT-YYYYMMDDXXXXX
-    if (!/^PT-\d{8}\d{5}$/.test(serialNumber)) {
+    if (!serialNumber) {
         return res.status(400).json({
             success: false,
-            message: 'Invalid serial number format. Expected: PT-YYYYMMDDXXXXX'
+            message: 'Serial number is required'
         });
     }
 
-    // Extract date and count
-    const dateStr = serialNumber.slice(3, 11); // YYYYMMDD
-    const count = parseInt(serialNumber.slice(11)); // XXXXX
+    // Clean the serial number
+    const cleanSerialNumber = serialNumber.trim().replace(/\s+/g, '');
+    
+    // Check format PT-YYYYMMDDXXXXX or PTYYYYMMDDXXXXX
+    if (!/^PT[-]?\d{8}\d{5}$/.test(cleanSerialNumber)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid serial number format. Expected format: PT-YYYYMMDDXXXXX'
+        });
+    }
+
+    // Extract date and count (handle both formats)
+    const dateStr = cleanSerialNumber.slice(cleanSerialNumber.indexOf('PT') + 2).replace('-', '').slice(0, 8);
+    const count = parseInt(cleanSerialNumber.slice(-5));
     
     // Validate count is not above 99999
     if (count > 99999) {
@@ -161,16 +170,20 @@ const validateSerialNumber = (req, res, next) => {
     const day = parseInt(dateStr.slice(6, 8));
     const date = new Date(year, month - 1, day);
     
-    if (isNaN(date.getTime()) || 
-        date.getFullYear() !== year ||
-        (date.getMonth() + 1) !== month ||
-        date.getDate() !== day) {
+    const isValidDate = !isNaN(date.getTime()) &&
+        date.getFullYear() === year &&
+        (date.getMonth() + 1) === month &&
+        date.getDate() === day;
+
+    if (!isValidDate) {
         return res.status(400).json({
             success: false,
             message: 'Invalid date in serial number'
         });
     }
 
+    // Standardize the format with hyphen
+    req.body.serialNumber = `PT-${dateStr}${count.toString().padStart(5, '0')}`;
     next();
 };
 
@@ -443,6 +456,50 @@ app.get('/api/patients/:id', async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error.message
+        });
+    }
+});
+
+// Add endpoint to generate next serial number
+app.get('/api/next-serial-number', async (req, res) => {
+    try {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const dateStr = `${year}${month}${day}`;
+        
+        // Find the highest serial number for today (with or without hyphen)
+        const latestPatient = await Patient.findOne({
+            serialNumber: new RegExp(`^PT-?${dateStr}`)
+        }).sort({ serialNumber: -1 });
+        
+        let nextNumber = 1;
+        if (latestPatient) {
+            // Extract the number from the last 5 digits
+            const lastNumber = parseInt(latestPatient.serialNumber.slice(-5));
+            nextNumber = lastNumber + 1;
+            
+            if (nextNumber > 99999) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Maximum patient limit reached for today'
+                });
+            }
+        }
+        
+        // Always generate with hyphen
+        const serialNumber = `PT-${dateStr}${String(nextNumber).padStart(5, '0')}`;
+        
+        res.json({
+            success: true,
+            serialNumber: serialNumber
+        });
+    } catch (error) {
+        console.error('Error generating serial number:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate serial number'
         });
     }
 });
